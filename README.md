@@ -27,6 +27,9 @@ If conversion succeeds:
 
 4. restart the system.
 
+If there is an error during installation of the pkgbase packages, the system may be left in a partially-converted state.
+In this case, the user should fix whatever issue caused the error and run `./pkgbasify --force` to try and complete the conversion.
+
 ## Behavior
 
 pkgbasify performs the following steps:
