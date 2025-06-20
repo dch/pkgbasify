@@ -68,8 +68,6 @@ function main()
 	-- After this point, no error should be fatal and pkgbasify should attempt
 	-- to finish conversion regardless of what happens.
 	execute_conversion(workdir, packages)
-
-	os.exit(0)
 end
 
 function setup_conversion(workdir)
@@ -113,6 +111,17 @@ function setup_conversion(workdir)
 	return select_packages(pkg)
 end
 
+-- Set to true if the pkg install or any later step errors. We will always
+-- attempt to execute every step after pkg install even if it fails, but we
+-- should exit with an error code if there was a failure along the way.
+local err_post_install = false
+local function check_err(ok, err_msg)
+	if not ok then
+		err(err_msg)
+		err_post_install = true
+	end
+end
+
 function execute_conversion(workdir, packages)
 	if os.execute("test -e " .. repos_conf_file) then
 		print("Overwriting " .. repos_conf_file)
@@ -140,23 +149,29 @@ function execute_conversion(workdir, packages)
 	-- pkg install is not necessarily fully atomic, even if it fails some subset
 	-- of the packages may have been installed. Therefore, we must attempt all
 	-- followup work even if install fails.
-	err_if_fail(os.execute("pkg install --no-repo-update -y -r FreeBSD-base " .. packages))
+	check_err(os.execute("pkg install --no-repo-update -y -r FreeBSD-base " .. packages))
 
 	merge_pkgsaves(workdir)
 
 	if os.execute("service sshd status > /dev/null 2>&1") then
 		print("Restarting sshd")
-		err_if_fail(os.execute("service sshd restart"))
+		check_err(os.execute("service sshd restart"))
 	end
 
-	err_if_fail(os.execute("pwd_mkdb -p /etc/master.passwd"))
-	err_if_fail(os.execute("cap_mkdb /etc/login.conf"))
+	check_err(os.execute("pwd_mkdb -p /etc/master.passwd"))
+	check_err(os.execute("cap_mkdb /etc/login.conf"))
 
 	-- From https://wiki.freebsd.org/PkgBase:
 	-- linker.hints was recreated at kernel install time, when we had .pkgsave files
 	-- of previous modules. A new linker.hints file will be created during the next
 	-- boot of the OS.
-	err_if_fail(os.remove("/boot/kernel/linker.hints"))
+	check_err(os.remove("/boot/kernel/linker.hints"))
+
+	if err_post_install then
+		os.exit(1)
+	else
+		os.exit(0)
+	end
 end
 
 function already_pkgbase()
@@ -373,7 +388,7 @@ function merge_pkgsaves(workdir)
 		local ours = theirs .. ".pkgsave"
 		if os.execute("test -e " .. ours) then
 			local merged = workdir .. "/merged/" .. theirs
-			err_if_fail(os.execute("mkdir -p " .. merged:match(".*/")))
+			check_err(os.execute("mkdir -p " .. merged:match(".*/")))
 			-- Using cat and a redirection rather than, for example, mv preserves
 			-- file attributes of theirs (mode, ownership, etc). This is critical
 			-- when merging executable scripts in /etc/rc.d/ for example.
@@ -401,12 +416,6 @@ end
 function append_list(list, other)
 	for _, item in ipairs(other) do
 		table.insert(list, item)
-	end
-end
-
-function err_if_fail(ok, err_msg)
-	if not ok then
-		err(err_msg)
 	end
 end
 
