@@ -17,7 +17,7 @@ If you find a bug in pkgbasify please open an issue!
 
 ## Usage
 
-Ensure you have at least 5 GB of free disk space.
+Ensure you have at least 5 GiB of free disk space.
 Conversion can likely succeed with less, but pkg is [not yet](https://github.com/freebsd/pkg/issues/75)
 able to detect and handle insufficient space gracefully.
 It can be difficult to recover if the system runs out of space during conversion.

@@ -370,6 +370,21 @@ local function confirm_risk()
 	return prompt_yn("Do you accept this risk and wish to continue?")
 end
 
+local function check_disk_space()
+	-- KiB available on the root filesystem
+	local avail = tonumber(capture("df -k / | awk '{x=$4}END{print x}'"))
+	if avail >= (5 * 1024 * 1024) then
+		return true
+	else
+		print([[
+Less than 5GiB space available on the root filesystem.
+It is recommended to have at lest 5GiB available before conversion as pkg does
+not detect and handle insufficient space gracefully during installation.
+]])
+		return prompt_yn("Continue despite possibly insufficient disk space?")
+	end
+end
+
 local usage = [[
 Usage: pkgbasify.lua [options]
 
@@ -401,6 +416,10 @@ local function main()
 		fatal([[
 The system is already using pkgbase.
 Pass --force to run pkgbasify anyway, for example to fix a partial conversion.]])
+	end
+	if not check_disk_space() then
+		print("Canceled")
+		os.exit(1)
 	end
 	if not confirm_risk() then
 		print("Canceled")
