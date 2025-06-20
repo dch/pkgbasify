@@ -366,12 +366,12 @@ function non_empty_dir(path)
 end
 
 function merge_pkgsaves(workdir)
-	for ours in capture("find / -name '*.pkgsave'"):gmatch("[^\n]+") do
-		local theirs = assert(ours:match("(.-)%.pkgsave"))
-		local old = workdir .. "/current/" .. theirs
-		-- Only attempt to merge if we have a common ancestor from the
-		-- pre-conversion snapshot of the etcupdate database.
-		if os.execute("test -e " .. old) then
+	local old_dir = workdir .. "/current"
+	for old in capture("find " .. old_dir .. " -type f"):gmatch("[^\n]+") do
+		local theirs = old:sub(#old_dir + 1)
+		assert(theirs:sub(1,1) == "/")
+		local ours = theirs .. ".pkgsave"
+		if os.execute("test -e " .. ours) then
 			local merged = workdir .. "/merged/" .. theirs
 			err_if_fail(os.execute("mkdir -p " .. merged:match(".*/")))
 			-- Using cat and a redirection rather than, for example, mv preserves
