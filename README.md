@@ -17,6 +17,11 @@ If you find a bug in pkgbasify please open an issue!
 
 ## Usage
 
+Ensure you have at least 5 GB of free disk space.
+Conversion can likely succeed with less, but pkg is [not yet](https://github.com/freebsd/pkg/issues/75)
+able to detect and handle insufficient space gracefully.
+It can be difficult to recover if the system runs out of space during conversion.
+
 Download the script, give it permission to execute, run it as root:
 
 1. `fetch https://github.com/FreeBSDFoundation/pkgbasify/raw/refs/heads/main/pkgbasify.lua`
