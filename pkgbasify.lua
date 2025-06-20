@@ -376,7 +376,6 @@ Usage: pkgbasify.lua [options]
     -h, --help  Print this usage message and exit
     --force     Attempt conversion even if /usr/bin/uname
                 is owned by a package.
-
 ]]
 
 local function parse_options()
@@ -399,7 +398,9 @@ end
 local function main()
 	local options = parse_options()
 	if not options.force and already_pkgbase() then
-		fatal("The system is already using pkgbase.")
+		fatal([[
+The system is already using pkgbase.
+Pass --force to run pkgbasify anyway, for example to fix a partial conversion.]])
 	end
 	if not confirm_risk() then
 		print("Canceled")
