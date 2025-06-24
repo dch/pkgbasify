@@ -33,7 +33,9 @@ If conversion succeeds:
 4. restart the system.
 
 If there is an error during installation of the pkgbase packages, the system may be left in a partially-converted state.
-In this case, the user should fix whatever issue caused the error and run `./pkgbasify --force` to try and complete the conversion.
+In this case, the user should fix whatever issue caused the error and run `./pkgbasify.lua --force` to try and complete the conversion.
+
+See also [Common Problems and Solutions](#common-problems-and-solutions).
 
 ## Behavior
 
@@ -65,3 +67,32 @@ pkgbasify performs the following steps:
 [sshd(8)]: https://man.freebsd.org/cgi/man.cgi?query=sshd&sektion=8&manpath=freebsd-release
 [pwd_mkdb(8)]: https://man.freebsd.org/cgi/man.cgi?query=pwd_mkdb&sektion=8&manpath=freebsd-release
 [cap_mkdb(1)]: https://man.freebsd.org/cgi/man.cgi?query=cap_mkdb&sektion=1&manpath=freebsd-release
+
+## Common Problems and Solutions
+
+### "Fail to create hardlink"
+
+```
+[1/66] Installing FreeBSD-runtime-15.snap20250604185611...
+[1/66] Extracting FreeBSD-runtime-15.snap20250604185611:  33%
+pkg: Fail to create hardlink: /.pkgtemp..profile.6vmf7kjyXtm8 <-> /root/.pkgtemp..profile.h5D7P2AMln3A:Cross-device link
+[1/66] Extracting FreeBSD-runtime-15.snap20250604185611: 100%
+Error: exit
+```
+
+This may be caused by a mountpoint over the top of a file or directory that `pkg` is trying to update.
+`pkg` expects that the `TMPDIR` and the destination are on the same filesystem.
+Unmount whatever is on top, and run `./pkgbasify.lua --force` to finish conversion.
+In this case, `/root` had been put on its own zfs dataset.
+
+### "Fail to set time on /var/empty:Read-only file system"
+
+```
+[1/66] Installing FreeBSD-runtime-15.snap20250604185611...
+[1/66] Extracting FreeBSD-runtime-15.snap20250604185611: 100%
+pkg: Fail to set time on /var/empty:Read-only file system
+Error: exit
+```
+
+This may be caused by having a zfs filesystem `zroot/var/empty` with the property `readonly=on`.
+Set `readonly=off` and run `/pkgbasify.lua --force` to finish conversion.
