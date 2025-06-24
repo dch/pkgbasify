@@ -30,7 +30,9 @@ Download the script, give it permission to execute, run it as root:
 
 If conversion succeeds: 
 
-4. restart the system.
+4. Verify that expected users and groups are present in `/etc/master.passwd` and `/etc/group`, and that `/etc/ssh/sshd_config` is as expected.
+   These should be handled automatically by pkgbasify, but since the consequences are high it is recommended to double check.
+5. Restart the system.
 
 If there is an error during installation of the pkgbase packages, the system may be left in a partially-converted state.
 In this case, the user should fix whatever issue caused the error and run `./pkgbasify.lua --force` to try and complete the conversion.
