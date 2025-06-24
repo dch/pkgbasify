@@ -370,6 +370,13 @@ local function confirm_risk()
 	return prompt_yn("Do you accept this risk and wish to continue?")
 end
 
+local function check_no_readonly_var_empty()
+	if not os.execute("test -e /var/empty/.zfs") then
+		return true -- Not a zfs filesystem
+	end
+	return capture("zfs get -H -o value readonly /var/empty") == "off"
+end
+
 local function check_disk_space()
 	-- KiB available on the root filesystem
 	local avail = tonumber(capture("df -k / | awk '{x=$4}END{print x}'"))
@@ -419,6 +426,14 @@ Pass --force to run pkgbasify anyway, for example to fix a partial conversion.]]
 	end
 	if not check_disk_space() then
 		print("Canceled")
+		os.exit(1)
+	end
+	if not check_no_readonly_var_empty() then
+		print([[
+/var/empty is a readonly zfs filesystem.
+This will cause conversion to fail as pkg will be unable to set the time of
+/var/empty. Set readonly=off and run pkgbasify again.
+]])
 		os.exit(1)
 	end
 	if not confirm_risk() then
