@@ -41,6 +41,10 @@ local function append_list(list, other)
 	end
 end
 
+local function warn(msg)
+	io.stderr:write("Warning: " .. msg .. "\n")
+end
+
 local function err(msg)
 	io.stderr:write("Error: " .. msg .. "\n")
 end
@@ -274,8 +278,9 @@ local function select_packages(pkg)
 	assert(#base_dbg > 0)
 	assert(#lib32 > 0)
 	assert(#lib32_dbg > 0)
-	assert(#src > 0)
 	assert(#tests > 0)
+	-- FreeBSD-src was not yet available for FreeBSD 14.0
+	assert(#src >= 0)
 
 	local selected = {}
 	append_list(selected, kernel)
@@ -296,6 +301,9 @@ local function select_packages(pkg)
 		append_list(selected, lib32_dbg)
 	end
 	if non_empty_dir("/usr/src") then
+		if #src == 0 then
+			warn("FreeBSD-src package not available for target FreeBSD release")
+		end
 		append_list(selected, src)
 	end
 	if non_empty_dir("/usr/tests") then
