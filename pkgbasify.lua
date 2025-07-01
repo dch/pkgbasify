@@ -167,8 +167,27 @@ local function execute_conversion(workdir, package_list)
 	check_err(os.remove("/boot/kernel/linker.hints"))
 
 	if err_post_install then
+		print([[
+An error occurred during conversion leaving the system in a partially
+converted state.
+
+Please determine and resolve the root cause of the error.
+
+When you believe the error will not happen again, run pkgbasify with
+the --force argument to try and complete the conversion.
+]])
 		os.exit(1)
 	else
+		print([[
+Conversion finished.
+
+Please verify that the contents of the following critical files are as expected:
+/etc/master.passwd
+/etc/group
+/etc/ssh/sshd_config
+
+After verifying those files, restart the system.
+]])
 		os.exit(0)
 	end
 end
