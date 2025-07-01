@@ -135,6 +135,10 @@ local function execute_conversion(workdir, package_list)
 		assert(f:write("BACKUP_LIBRARIES=yes\n"))
 	end
 
+	-- ensure we have /boot/kernel/linker.hints present before installing
+	-- to avoid what looks like an error at the end of the install.
+	os.execute("touch /boot/kernel/linker.hints")
+
 	local packages = table.concat(package_list, " ")
 	-- Fetch the packages separately so that we can retry if there is a temporary
 	-- network issue or similar.
