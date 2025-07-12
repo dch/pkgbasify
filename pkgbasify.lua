@@ -10,7 +10,7 @@
 -- See also the pkgbase wiki page: https://wiki.freebsd.org/PkgBase
 
 local repos_conf_dir <const> = "/usr/local/etc/pkg/repos/"
-local repos_conf_file <const> = repos_conf_dir .. "FreeBSD-base.conf"
+local repos_conf_file <const> = repos_conf_dir .. "pkg-base.conf"
 
 -- Run a command using the OS shell and capture the stdout
 -- Strips exactly one trailing newline if present, does not strip any other whitespace.
@@ -68,7 +68,7 @@ local function base_repo_url()
 	if branch == "RELEASE" or branch:match("^BETA") or branch:match("^RC") then
 		return "pkg+https://pkg.FreeBSD.org/${ABI}/base_release_" .. minor
 	elseif branch == "CURRENT" or branch == "STABLE" then
-		return "pkg+https://pkg.FreeBSD.org/${ABI}/base_latest"
+		return "https://pkg.skunkwerks.at/${ABI}/base"
 	else
 		fatal("Unsupported FreeBSD version: " .. raw)
 	end
@@ -78,11 +78,9 @@ local function create_base_repo_conf(path)
 	assert(os.execute("mkdir -p " .. path:match(".*/")))
 	local f <close> = assert(io.open(path, "w"))
 	assert(f:write(string.format([[
-FreeBSD-base: {
+pkg-base: {
   url: "%s",
-  mirror_type: "srv",
-  signature_type: "fingerprints",
-  fingerprints: "/usr/share/keys/pkg",
+  mirror_type: none,
   enabled: yes
 }
 ]], base_repo_url())))
@@ -138,7 +136,7 @@ local function execute_conversion(workdir, package_list)
 	local packages = table.concat(package_list, " ")
 	-- Fetch the packages separately so that we can retry if there is a temporary
 	-- network issue or similar.
-	while not os.execute("pkg install --fetch-only -y -r FreeBSD-base " .. packages) do
+	while not os.execute("pkg install --fetch-only -y -r pkg-base " .. packages) do
 		if not prompt_yn("Fetching packages failed, try again?") then
 			print("Canceled")
 			os.exit(1)
@@ -148,7 +146,7 @@ local function execute_conversion(workdir, package_list)
 	-- pkg install is not necessarily fully atomic, even if it fails some subset
 	-- of the packages may have been installed. Therefore, we must attempt all
 	-- followup work even if install fails.
-	check_err(os.execute("pkg install --no-repo-update -y -r FreeBSD-base " .. packages))
+	check_err(os.execute("pkg install --no-repo-update -y -r pkg-base " .. packages))
 
 	merge_pkgsaves(workdir)
 
@@ -196,8 +194,8 @@ end
 local function rquery_osversion(pkg)
 	-- It feels like pkg should provide a less ugly way to do this.
 	-- TODO is FreeBSD-runtime the correct pkg to check against?
-	local tags = capture(pkg .. "rquery -r FreeBSD-base %At FreeBSD-runtime"):gmatch("[^\n]+")
-	local values = capture(pkg .. "rquery -r FreeBSD-base %Av FreeBSD-runtime"):gmatch("[^\n]+")
+	local tags = capture(pkg .. "rquery -r pkg-base %At FreeBSD-runtime"):gmatch("[^\n]+")
+	local values = capture(pkg .. "rquery -r pkg-base %Av FreeBSD-runtime"):gmatch("[^\n]+")
 	while true do
 		local tag = tags()
 		local value = values()
@@ -268,7 +266,7 @@ local function select_packages(pkg)
 	local src = {}
 	local tests = {}
 
-	local rquery = capture(pkg .. "rquery -r FreeBSD-base %n")
+	local rquery = capture(pkg .. "rquery -r pkg-base %n")
 	for package in rquery:gmatch("[^\n]+") do
 		if package == "FreeBSD-src" or package:match("FreeBSD%-src%-.*") then
 			table.insert(src, package)
@@ -276,9 +274,9 @@ local function select_packages(pkg)
 			table.insert(tests, package)
 		elseif package:match("FreeBSD%-kernel%-.*") then
 			-- Kernels other than FreeBSD-kernel-generic are ignored
-			if package == "FreeBSD-kernel-generic" then
+			if package == "FreeBSD-kernel-generic-nodebug" then
 				table.insert(kernel, package)
-			elseif package == "FreeBSD-kernel-generic-dbg" then
+			elseif package == "FreeBSD-kernel-generic-nodebug-dbg" then
 				table.insert(kernel_dbg, package)
 			end
 		elseif package:match(".*%-dbg%-lib32") then
@@ -295,38 +293,38 @@ local function select_packages(pkg)
 	assert(#kernel_dbg == 1)
 	assert(#base > 0)
 	assert(#base_dbg > 0)
-	assert(#lib32 > 0)
-	assert(#lib32_dbg > 0)
-	assert(#tests > 0)
-	-- FreeBSD-src was not yet available for FreeBSD 14.0
-	assert(#src >= 0)
+--	assert(#lib32 > 0)
+--	assert(#lib32_dbg > 0)
+--	assert(#tests > 0)
+--	assert(#src > 0)
+--	assert(#tests > 0)
 
 	local selected = {}
 	append_list(selected, kernel)
 	append_list(selected, base)
 
 	if non_empty_dir("/usr/lib/debug/boot/kernel") then
-		append_list(selected, kernel_dbg)
+		-- append_list(selected, kernel_dbg)
 	end
 	if os.execute("test -e /usr/lib/debug/lib/libc.so.7.debug") then
-		append_list(selected, base_dbg)
+		-- append_list(selected, base_dbg)
 	end
 	-- Checking if /usr/lib32 is non-empty is not sufficient, as base.txz
 	-- includes several empty /usr/lib32 subdirectories.
 	if os.execute("test -e /usr/lib32/libc.so.7") then
-		append_list(selected, lib32)
+		-- append_list(selected, lib32)
 	end
 	if os.execute("test -e /usr/lib/debug/usr/lib32/libc.so.7.debug") then
-		append_list(selected, lib32_dbg)
+		-- append_list(selected, lib32_dbg)
 	end
 	if non_empty_dir("/usr/src") then
 		if #src == 0 then
 			warn("FreeBSD-src package not available for target FreeBSD release")
 		end
-		append_list(selected, src)
+		-- append_list(selected, src)
 	end
 	if non_empty_dir("/usr/tests") then
-		append_list(selected, tests)
+		-- append_list(selected, tests)
 	end
 
 	return selected
@@ -346,10 +344,11 @@ local function setup_conversion(workdir)
 	-- Use a temporary repo configuration file for the setup phase so that there
 	-- is nothing to clean up on failure.
 	local tmp_repos = workdir .. "/pkgrepos/"
-	create_base_repo_conf(tmp_repos .. "FreeBSD-base.conf")
+	create_base_repo_conf(tmp_repos .. "pkg-base.conf")
 
 	local pkg = "pkg -o PKG_DBDIR=" .. tmp_db .. " -R " .. tmp_repos .. " "
 
+	print("Using temporary pkg " .. pkg)
 	assert(os.execute(pkg .. "-o IGNORE_OSVERSION=yes update"))
 
 	if not confirm_version_compatibility(pkg) then
